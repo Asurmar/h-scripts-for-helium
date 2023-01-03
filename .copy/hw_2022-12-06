@@ -1,0 +1,54 @@
+#
+# Repository: https://github.com/Asurmar/hscripts-for-helium
+#
+# Description: This script display witness count and details (RSSI, frequency, SNR)
+#
+# Compatibility:
+# Milesight     +
+# Panther       +
+# Balena-based:
+#   Sensecap    +
+#   Nebra       +
+
+# Balena-based: Sensecap, Nebra
+if     [ -x "$(command -v balena)" ]; then 
+  logdir=$(ls -l /mnt/data/docker/volumes|grep miner-log|awk '{print $NF}')
+  log_path=/mnt/data/docker/volumes/$logdir/_data;
+# Milesight
+elif   [ -f /mnt/mmcblk0p1/miner_data/log/console.log ];    then log_path=/mnt/mmcblk0p1/miner_data/log;
+# Panther
+elif   [ -f /var/dashboard/statuses/pantherx_ver ];         then log_path=/opt/miner_data/log; fi
+
+if [ -z $log_path ]; then echo "Unknown hotspot, exiting."; exit 6; fi
+if ! [ -f $log_path/console.log ]; then echo "Missing console.log file."; exit 6; fi
+
+totalcount=0
+searchstring="sending witness"
+echo -e 'Log file        Log start time\t\tWitnessed reports'
+echo    '-------------------------------------------------------------'
+for logfile in console.log.4 console.log.3 console.log.2 console.log.1 console.log.0 console.log; do
+  if [ -f $log_path/$logfile ]; then
+    date=$(head -n1 $log_path/$logfile|awk '{print $1" "$2}')
+    count=$(grep "$searchstring" $log_path/$logfile|wc -l)
+    totalcount=$(($totalcount+$count))
+    if [ $logfile = console.log ]; then echo -e $logfile'    '$date'\t'$count;
+    else                                echo -e $logfile'  '$date'\t'$count; fi
+  fi
+done
+
+echo Total witnessed: $totalcount
+echo
+echo Witnessed details
+echo -----------------------------------------------------------------
+OLDIFS=$IFS
+IFS='
+'
+for logfile in console.log.4 console.log.3 console.log.2 console.log.1 console.log.0 console.log; do
+  if [ -f $log_path/$logfile ]; then
+    echo $logfile:
+    for line in $(grep "sending witness" $log_path/$logfile|awk '{print $1" "$2" "$9" "$10" "$11" "$12" "$13" "$14}'); do
+      echo $(echo $line|awk '{print $1" "$2" \t"$3" "$4"\t"$5" "$6"\t"$7" "$8}');
+    done
+  fi
+done
+IFS=$OLDIFS

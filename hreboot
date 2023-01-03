@@ -1,0 +1,38 @@
+#
+# Repository: https://github.com/Asurmar/hscripts-for-helium
+#
+# Description: This script stops the miner app container and reboots hotspot
+#
+# Compatibility:
+# Milesight     +
+# Panther       +
+# Balena-based:
+#   Sensecap    +
+#   Nebra       +
+
+if   [ -x "$(command -v docker)" ]; then engine=docker
+elif [ -x "$(command -v balena)" ]; then engine=balena
+else echo "No engine (docker/balena) detected, exiting."; exit 6; fi
+
+if ! [ $(whoami) = 'root' ]; then engine="sudo $engine"; fi
+
+container=$($engine ps -a|grep -i miner|awk '{print $1}')
+command="$engine stop $container"
+
+echo -e "\033[1mCurrent miner app container:\033[0m"
+$engine ps -a --format 'table {{.ID}}\t{{.Command}}\t{{.RunningFor}}\t{{.Status}}\t{{.Names}}'|grep -E "miner|^CONTAINER"
+
+echo -e "\nExecuting command: $command\n"
+echo Shutting down miner app container.
+#$command
+
+#status=$($engine inspect --format {{.State.Running}} $container)
+status=false
+while [ "$status" = "true" ]; do
+  printf "*"
+  sleep 1
+  status=$($engine inspect --format {{.State.Running}} $container)
+done
+
+echo -e "\nRebooting hotspot...\n"
+reboot

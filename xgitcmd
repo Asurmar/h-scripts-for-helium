@@ -1,0 +1,17 @@
+#/bin/bash
+
+./xcompress
+git status
+git add .
+case $# in
+  0) git commit -m "Initial commit";;
+  *) git commit -m "$*";;
+esac
+git push origin master
+echo
+echo
+echo liczba=$#
+echo wsie=$*
+echo par1=$1
+echo par2=$2
+echo par3=$3

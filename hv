@@ -1,0 +1,132 @@
+#
+# Repository: https://github.com/Asurmar/hscripts-for-helium
+#
+# Description: This script displays information about connections to validators.
+#
+# Compatibility:
+# Milesight     partially
+# Panther       partially
+# Balena-based:
+#   Sensecap    +
+#   Nebra       +
+
+# Balena-based: Sensecap, Nebra
+if     [ -x "$(command -v balena)" ]; then 
+  logdir=$(ls -l /mnt/data/docker/volumes|grep miner-log|awk '{print $NF}')
+  log_path=/mnt/data/docker/volumes/$logdir/_data;
+# Milesight
+elif   [ -f /mnt/mmcblk0p1/miner_data/log/console.log ];    then log_path=/mnt/mmcblk0p1/miner_data/log;
+# Panther
+elif   [ -f /var/dashboard/statuses/pantherx_ver ];         then log_path=/opt/miner_data/log; fi
+
+if [ -z $log_path ]; then echo "Unknown hotspot, exiting."; exit 6; fi
+if ! [ -f $log_path/console.log ]; then echo "Missing console.log file."; exit 6; fi
+
+### Searching for validator connections in logs
+echo -e "\033[1mValidator connections in log files:\033[0m"
+echo -e Time of connection'         'Validator IP'\t\t'Validator name
+echo    ----------------------------------------------------------------------
+OLDIFS=$IFS
+IFS='
+'
+for logfile in console.log.4 console.log.3 console.log.2 console.log.1 console.log.0 console.log; do
+  if [ -f $log_path/$logfile ]; then
+    for line in $(grep -aiE "\{519,17\}|\{532,17\}" $log_path/$logfile); do                            
+      date=$(echo $line|awk '{print $1" "$2}')
+      validatorip=$(echo $line|cut -d'"' -f4)
+      validatorname=$(echo $line|cut -d'"' -f2)
+      if [ ${#validatorip} -ge 13 ]; then  echo -e $date'    '$validatorip'\t'$validatorname;
+      else                                 echo -e $date'    '$validatorip'\t\t'$validatorname; fi
+    done
+  fi
+done
+IFS=$OLDIFS
+if [ "$validatorname" = "" ]; then echo -e "\033[1;31mUnable to find validator connection in log files.\033[0m"; fi
+
+if   [ -x "$(command -v docker)" ]; then engine=docker
+elif [ -x "$(command -v balena)" ]; then engine=balena
+else echo "No engine (docker/balena) detected, exiting."; exit 6; fi
+if ! [ $(whoami) = 'root' ]; then engine="sudo $engine"; fi
+container=$($engine ps|grep -i miner|awk '{print $NF}')
+
+### Displaying TCP connection to validator
+echo -e "\n\033[1mCurrent connection to validator:\033[0m"
+$engine exec $container netstat -ntp 2> /dev/null|grep "PID"
+connection_rows=0
+count=0
+while [ $connection_rows -ne 1 ]; do
+  connection=$($engine exec $container netstat -ntp 2> /dev/null|grep -vE "127.0.0.1:.*127.0.0.1:|:443"|grep "ESTABLISHED.*miner")
+  connection_rows=$(echo "$connection"|wc -l)
+  if [ $connection_rows -eq 1 ]; then val_ipport=$(echo $connection|grep -o ":.*ESTABLISHED"|awk '{print $2}'); break; fi
+  count=$(($count+1))
+  if [ $count -eq 5 ]; then echo -e "\033[0;31mNo validator connection, exiting\033[0m"; exit 6; fi
+  sleep 0.5
+done
+echo -e "$connection\n"                                                                                            
+
+if [ ! -x "$(command -v jq)" ]; then echo -e "Unable to continue, command 'jq' not found but required to retrieve data from API."; exit 6; fi
+
+### Search through the API for validator name
+if [ "$validatorname" = "" ]; then       # no validator connection in logs, must search all validators list through API
+  printf "\033[1mSearching for validator name, please wait...\033[0m\r"
+  cursor=
+  while [ "$cursor" != "null" ]; do
+    apiresult=$(curl -A "Mozilla/5.0" -s "https://api.helium.io/v1/validators?cursor=$cursor")
+    echo $apiresult|grep "$val_ipport" > /dev/null
+    if [ $? -eq 0 ]; then
+      cursor=null
+      for x in {0..99}; do
+        name_grpc=$(echo $apiresult|jq -r .data[$x].name,.data[$x].status.grpc_addr)
+        echo $name_grpc|grep "$val_ipport" > /dev/null
+        if [ $? -eq 0 ]; then validatorname=$(echo $name_grpc|awk '{print $1}'); fi
+      done
+    else
+      cursor=$(echo $apiresult|jq -r .cursor)
+    fi
+  done
+  echo -en "\\033[0K"
+fi
+if [ "$validatorname" = "" ]; then echo "Can't retrieve validator information from API, exiting."; exit 6; fi
+
+### Get validator info from API
+curlcmd="curl -A 'Mozilla/5.0' -s https://api.helium.io/v1/validators/name/$validatorname"
+apioutput=$($curlcmd|jq .data[0]|jq 'del(.penalties)')
+val_status=$(echo $apioutput|jq -r .status.online)
+val_ver_long=$(echo $apioutput|jq -r .version_heartbeat)
+val_grpc=$(echo $apioutput|jq -r .status.grpc_addr)
+val_lastheartbeat=$(echo $apioutput|jq -r .last_heartbeat)
+val_addr=$(echo $apioutput|jq -r .address)
+
+### Validator version conversion
+latest_github=$(curl -s -w "%{http_code} %{redirect_url}" https://github.com/helium/miner/releases/latest)
+httpcode=$(echo $latest_github|awk '{print $1}')
+if [ "$httpcode" = "302" ]; then ver_latest=$(echo $latest_github|awk '{print $2}'|grep -o "validator.*\$"|sed "s/validator//"); fi
+ver_major=$(echo $val_ver_long|cut -c 1)
+ver_minor=$(echo $val_ver_long|cut -c 2-4|grep -o [1-9].*$)
+ver_build=$(echo $val_ver_long|cut -c 5-8|grep -o [1-9].*$)
+val_ver_current=$ver_major"."$ver_minor"."$ver_build
+
+### Heartbeat & activity calculation
+height=$(curl -s https://api.helium.io/v1/blocks/height|jq -r .data.height)
+diff_heartbeat=$(($height-$val_lastheartbeat))
+roles_output=$(curl -A 'Mozilla/5.0' -s https://api.helium.io/v1/validators/$val_addr/roles|jq -r .data[0].type,.data[0].height)
+roles_type=$(echo $roles_output|awk '{print $1}')
+roles_height=$(echo $roles_output|awk '{print $2}')
+diff_roles=$(($height-roles_height))
+
+### Display validator information
+echo -e "\033[1mCurrent validator details:\033[0m"
+echo -e "Validator name     : $validatorname"
+echo -e "Validator IP:port  : $val_ipport"
+echo -e "Connection time    : $date"
+echo -e "Status             : $val_status"
+if [ "$ver_latest" = "$val_ver_current" ]; then
+echo -e "Version            : $val_ver_current (this is the latest)"
+else
+echo -e "Version            : $val_ver_current (\033[1;31mlatest is $ver_latest\033[0m)"
+fi
+echo -e "gRPC address       : $val_grpc"
+echo -e "Last heartbeat     : $val_lastheartbeat ($diff_heartbeat blocks ago)"
+echo -e "Last activity      : $roles_height ($diff_roles blocks ago)"
+echo -e "Last activity type : $roles_type"
+echo -e "Explorer URL       : https://explorer.helium.com/validators/$val_addr" 

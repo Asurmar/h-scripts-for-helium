@@ -1,0 +1,20 @@
+#
+# Repository: https://github.com/Asurmar/hscripts-for-helium
+#
+# Description: This script displays the container info for helium miner
+#			   Equivalent of "docker ps" or "balena ps"
+#
+# Compatibility:
+# Milesight     +
+# Panther       +
+# Balena-based:
+#   Sensecap    +
+#   Nebra       +
+
+if   [ -x "$(command -v docker)" ]; then engine=docker
+elif [ -x "$(command -v balena)" ]; then engine=balena
+else echo "No engine (docker/balena) detected, exiting."; exit 6; fi
+
+if ! [ $(whoami) = 'root' ]; then engine="sudo $engine"; fi
+
+$engine ps -a --format 'table {{.ID}}\t{{.Command}}\t{{.RunningFor}}\t{{.Status}}\t{{.Names}}'|grep -E "miner|^CONTAINER"

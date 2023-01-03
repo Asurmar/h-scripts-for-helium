@@ -1,0 +1,23 @@
+#
+# Repository: https://github.com/Asurmar/hscripts-for-helium
+#
+# Description: This script displays current miner version
+#
+# Compatibility:
+# Milesight     +
+# Panther       +
+# Balena-based:
+#   Sensecap    +
+#   Nebra       +
+
+if   [ -x "$(command -v docker)" ]; then engine=docker
+elif [ -x "$(command -v balena)" ]; then engine=balena
+else echo "No engine (docker/balena) detected, exiting."; exit 6; fi
+
+if ! [ $(whoami) = 'root' ]; then engine="sudo $engine"; fi
+
+container=$($engine ps|grep -i miner|awk '{print $1}')
+command="$engine exec $container miner versions"
+
+echo Executing command: $command
+$command

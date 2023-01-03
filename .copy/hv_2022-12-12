@@ -1,0 +1,64 @@
+#
+# Repository: https://github.com/Asurmar/hscripts-for-helium
+#
+# Description: This script displays information about connections to validators.
+#
+# Compatibility:
+# Milesight     +
+# Panther       +
+# Balena-based:
+#   Sensecap    +
+#   Nebra       +
+
+# Balena-based: Sensecap, Nebra
+if     [ -x "$(command -v balena)" ]; then 
+  logdir=$(ls -l /mnt/data/docker/volumes|grep miner-log|awk '{print $NF}')
+  log_path=/mnt/data/docker/volumes/$logdir/_data;
+# Milesight
+elif   [ -f /mnt/mmcblk0p1/miner_data/log/console.log ];    then log_path=/mnt/mmcblk0p1/miner_data/log;
+# Panther
+elif   [ -f /var/dashboard/statuses/pantherx_ver ];         then log_path=/opt/miner_data/log; fi
+
+if [ -z $log_path ]; then echo "Unknown hotspot, exiting."; exit 6; fi
+if ! [ -f $log_path/console.log ]; then echo "Missing console.log file."; exit 6; fi
+
+echo Validator connections:
+echo 
+echo -e Time of connection'         'Validator IP'\t\t'Validator name
+echo    ----------------------------------------------------------------------
+OLDIFS=$IFS
+IFS='
+'
+for logfile in console.log.4 console.log.3 console.log.2 console.log.1 console.log.0 console.log; do
+  if [ -f $log_path/$logfile ]; then
+    for line in $(grep -aiE "\{519,17\}|\{532,17\}" $log_path/$logfile); do                            
+      date=$(echo $line|awk '{print $1" "$2}')
+      validatorip=$(echo $line|cut -d'"' -f4)
+      validatorname=$(echo $line|cut -d'"' -f2)
+      if [ ${#validatorip} -ge 13 ]; then  echo -e $date'    '$validatorip'\t'$validatorname;
+      else                                 echo -e $date'    '$validatorip'\t\t'$validatorname; fi
+      lastvalidatorip=$validatorip
+      lastfile=$logfile
+    done
+  fi
+done
+IFS=$OLDIFS
+
+if   [ -x "$(command -v docker)" ]; then engine=docker
+elif [ -x "$(command -v balena)" ]; then engine=balena
+else echo "No engine (docker/balena) detected, exiting."; exit 6; fi
+
+if ! [ $(whoami) = 'root' ]; then engine="sudo $engine"; fi
+
+container=$($engine ps|grep -i miner|awk '{print $NF}')
+
+echo
+#echo Last validator = $lastvalidatorip
+#echo Last file = $lastfile
+echo Current connection to validator:
+if [ -z $lastvalidatorip ]; then
+  $engine exec $container netstat -nt|grep ":8080";
+  if [ $? -ne 0 ]; then echo "No active validator connections or using port other than default (8080)"; exit 6; fi
+else
+  $engine exec $container netstat -ntp|grep -E "$lastvalidatorip.*ESTABLISHED|PID";
+fi

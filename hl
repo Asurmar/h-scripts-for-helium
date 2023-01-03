@@ -1,0 +1,36 @@
+#
+# Repository: https://github.com/Asurmar/hscripts-for-helium
+#
+# Description: This script changes current directory to Helium miner logfiles directory
+#
+# Compatibility:
+# Milesight     +
+# Panther       +
+# Balena-based:
+#   Sensecap  	+
+#   Nebra     	+
+
+# Balena-based: Sensecap, Nebra
+if     [ -x "$(command -v balena)" ]; then 
+  logdir=$(ls -l /mnt/data/docker/volumes|grep miner-log|awk '{print $NF}')
+  log_path=/mnt/data/docker/volumes/$logdir/_data;
+# Milesight
+elif   [ -f /mnt/mmcblk0p1/miner_data/log/console.log ];    then log_path=/mnt/mmcblk0p1/miner_data/log;
+# Panther
+elif   [ -f /var/dashboard/statuses/pantherx_ver ];         then log_path=/opt/miner_data/log; fi
+
+if [ -z $log_path ]; then echo "Unknown hotspot, exiting."; exit 6; fi
+if ! [ -f $log_path/console.log ]; then echo "Missing console.log file."; exit 6; fi
+
+echo Log path: $log_path
+echo
+
+# if invoked without a dot
+echo $0|grep hl > /dev/null
+if [ $? -eq 0 ]; then
+  echo "This script MUST BE invoked with dot before filename (. [SPACE] hl):"
+  echo "    . hl"
+  exit 6
+fi
+
+cd $log_path

@@ -1,0 +1,75 @@
+#
+# Repository: https://github.com/Asurmar/hscripts-for-helium
+#
+# Description: This script displays witness summary (count, percentage)
+#
+# Compatibility:
+# Milesight     +
+# Panther       +
+# Balena-based:
+#   Sensecap    +
+#   Nebra       +
+
+# Balena-based: Sensecap, Nebra
+if     [ -x "$(command -v balena)" ]; then 
+  logdir=$(ls -l /mnt/data/docker/volumes|grep miner-log|awk '{print $NF}')
+  log_path=/mnt/data/docker/volumes/$logdir/_data;
+# Milesight
+elif   [ -f /mnt/mmcblk0p1/miner_data/log/console.log ];    then log_path=/mnt/mmcblk0p1/miner_data/log;
+# Panther
+elif   [ -f /var/dashboard/statuses/pantherx_ver ];         then log_path=/opt/miner_data/log; fi
+
+if [ -z $log_path ]; then echo "Unknown hotspot, exiting."; exit 6; fi
+if ! [ -f $log_path/console.log ]; then echo "Missing console.log file."; exit 6; fi
+
+totalcount=0
+searchstring="sending witness"
+echo -e 'Log file       Log start time\t\tWitnessed beacons'
+echo    '---------------------------------------------------------'
+for logfile in console.log.4 console.log.3 console.log.2 console.log.1 console.log.0 console.log; do
+  if [ -f $log_path/$logfile ]; then
+    date=$(head -n1 $log_path/$logfile|awk '{print $1" "$2}')
+    count=$(grep "$searchstring" $log_path/$logfile|wc -l)
+    totalcount=$(($totalcount+$count))
+    if [ $logfile = console.log ]; then echo -e $logfile'    '$date'\t'$count;
+    else                                echo -e $logfile'  '$date'\t'$count; fi
+  fi
+done                                                                                                
+echo -e "Total witnessed: $totalcount\n"                                                            
+                                                                                                    
+lvl_weak=0                                                                                          
+lvl_medium=0                                                                                        
+lvl_good=0                                                                                          
+lvl_excellent=0                                                                                     
+printf "\033[1mCalculating RSSI level counts...\033[0m\r"
+OLDIFS=$IFS
+IFS='
+'
+for logfile in console.log.4 console.log.3 console.log.2 console.log.1 console.log.0 console.log; do
+  if [ -f $log_path/$logfile ]; then
+    rssi_lvl=unknown
+    for line in $(grep "sending witness" $log_path/$logfile|awk '{print $1" "$2"  "$12"\t"$14"\t"$10}'|sed 's/,//g'); do
+      rssi=$(echo $line|awk '{print $NF}');
+      if   [[ $rssi -lt -130 ]] ; then lvl_weak=$(($lvl_weak+1));
+      elif [[ $rssi -lt -110 ]] ; then lvl_medium=$(($lvl_medium+1));
+      elif [[ $rssi -lt  -90 ]] ; then lvl_good=$(($lvl_good+1));
+      elif [[ $rssi -ge  -90 ]] ; then lvl_excellent=$(($lvl_excellent+1));
+      fi
+    done
+  fi
+done
+IFS=$OLDIFS
+
+weak_percent=$(awk "BEGIN {printf \"%.1f\",( 100 * $lvl_weak / $totalcount )}")
+medium_percent=$(awk "BEGIN {printf \"%.1f\",( 100 * $lvl_medium / $totalcount )}")
+good_percent=$(awk "BEGIN {printf \"%.1f\",( 100 * $lvl_good / $totalcount )}")
+excellent_percent=$(awk "BEGIN {printf \"%.1f\",( 100 * $lvl_excellent / $totalcount )}")
+echo -en "\\033[0K"
+echo -e "RSSI level count"     
+echo -e "------------------------------------------"
+echo -e "\033[0;31mweak\033[0m      (below -130)    $lvl_weak ($weak_percent %)"
+echo -e "\033[0;33mmedium\033[0m    (-130 to -110)  $lvl_medium ($medium_percent %)"
+echo -e "\033[1;33mgood\033[0m      (-110 to -90)   $lvl_good ($good_percent %)"
+echo -e "\033[0;32mexcellent\033[0m (above -90)     $lvl_excellent ($excellent_percent %)"              
+echo -e "------------------------------------------"
+echo -e "Total:     $totalcount"

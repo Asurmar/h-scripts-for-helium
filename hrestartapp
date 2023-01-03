@@ -1,0 +1,77 @@
+#
+# Repository: https://github.com/Asurmar/hscripts-for-helium
+#
+# Description: This script restarts the app running in a docker/balena container
+#
+# Compatibility:
+# Milesight     +
+# Panther       +
+# Balena-based:
+#   Sensecap    +
+#   Nebra       +
+
+debug=false                       # set this to "true" for additional debugging
+
+if   [ -x "$(command -v docker)" ]; then engine=docker
+elif [ -x "$(command -v balena)" ]; then engine=balena
+else echo "No engine (docker/balena) detected, exiting."; exit 6; fi
+
+if ! [ $(whoami) = 'root' ]; then engine="sudo $engine"; fi
+
+container=$($engine ps -a|grep -i miner|awk '{print $1}')
+command="$engine exec $container miner restart"
+pscmd=
+ls -l $(which ps)|grep -i busybox > /dev/null
+if [ $? -eq 0 ]; then pscmd="ps";
+else                  pscmd="ps aux"; fi
+
+if [ "$pscmd" = "ps" ]; then oldpid=$($pscmd|grep -vE "grep|region"|grep /opt/miner/bin/miner.*multi_time_warp|awk '{print $1}');
+else                         oldpid=$($pscmd|grep -vE "grep|region"|grep /opt/miner/bin/miner.*multi_time_warp|awk '{print $2}'); fi
+psheader=$($pscmd|grep -v grep|grep PID)
+process=$($pscmd|grep -vE "grep|region"|grep /opt/miner/bin/miner.*multi_time_warp)
+validator=$($engine exec $container netstat -ntp|grep -v 127\.0|grep -E "ESTABLISHED.*miner|PID")
+echo -e "\033[1mCurrent miner app process:\033[0m"
+echo -e "$psheader\n$process\n"
+echo -e "\033[1mCurrent miner app connections:\033[0m"
+echo -e "$validator\n"
+
+echo -e "Executing command: $command\n"
+$command
+if [ $? -eq 0 ]; then
+  echo Restarting miner app
+  sleep 1
+  ping="bong"
+  count=0
+  while [ "$ping" != "pong" ]; do
+    printf "*"
+    sleep 1
+    count=$(expr $count + 1)                                                                                                        
+    if [ $count -ge 40 ]; then echo "Restart failed, starting miner app."; $engine start $container; sleep 1; fi                    
+    ping=$($engine exec $container miner ping 2> /dev/null)
+  done 
+
+  echo -e "\n\nWaiting for miner to come up"
+  while [ -n "$($pscmd|grep -vE 'grep'|grep 'miner info region')" ]; do      # needed on balena because of periodic running of "miner info region" command
+    sleep 1
+  done;
+
+  if [ "$pscmd" = "ps" ]; then newpid=$($pscmd|grep -vE "grep|region"|grep /opt/miner/bin/miner.*multi_time_warp|awk '{print $1}');
+  else                         newpid=$($pscmd|grep -vE "grep|region"|grep /opt/miner/bin/miner.*multi_time_warp|awk '{print $2}'); fi
+  process=$($pscmd|grep -vE "grep|region"|grep /opt/miner/bin/miner.*multi_time_warp)
+  validator=$($engine exec $container netstat -ntp|grep -v 127\.0|grep -E "ESTABLISHED.*miner|PID")
+  echo -e "\n\033[1mNew miner app process:\033[0m"
+  echo -e "$psheader\n$process\n"
+  echo -e "\033[1mNew miner app connections:\033[0m"
+  echo -e "$validator\n"
+  [ $oldpid -eq $newpid ] && echo Miner app restarted, same PID. || echo Miner app restarted.
+else
+  echo Unable to restart the app.
+fi
+
+if [ $debug = "true" ]; then
+  echo
+  echo Debug: pscmd=$pscmd
+  echo Debug: psheader=$psheader
+  echo Debug: oldpid=$oldpid
+  echo Debug: newpid=$newpid
+fi

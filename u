@@ -1,0 +1,13 @@
+#
+# Repository: https://github.com/Asurmar/hscripts-for-helium
+#
+# Description: This script is a shortcut for uptime command.
+#
+# Compatibility:
+# Milesight		+
+# Panther		+
+# Balena-based:
+#   Sensecap  	+
+#   Nebra     	+
+
+uptime
