@@ -24,7 +24,7 @@ Collection of handy shell scripts for day to day management of a Helium hotspot.
 
 ### 3. Installation
 Download install script and run it, just copy and paste below commands (one line):  
-<sub>`wget -O install.sh https://github.com/Asurmar/hscripts-for-helium/raw/master/install.sh; chmod +x install.sh; ./install.sh`</sub>  
+<sub>`wget -O install.sh https://github.com/Asurmar/hscripts-for-helium/raw/main/install.sh; chmod +x install.sh; ./install.sh`</sub>  
 On balena-based hotspots (Sensecap, Nebra, Nebra for 3rd party hotspots) first change directory to:  
 `cd /mnt/data/`
 
