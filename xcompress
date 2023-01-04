@@ -1,4 +1,0 @@
-#/bin/bash
-
-[[ -f hscripts.tar.gz ]] && rm hscripts.tar.gz
-tar -czvf hscripts.tar.gz h* me u
