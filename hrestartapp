@@ -39,7 +39,7 @@ echo -e "Executing command: $command\n"
 $command
 if [ $? -eq 0 ]; then
   echo Restarting miner app
-  sleep 1
+  sleep 3
   ping="bong"
   count=0
   while [ "$ping" != "pong" ]; do

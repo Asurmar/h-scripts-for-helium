@@ -37,6 +37,7 @@ echo -e "Executing command: $command\n"
 $command
 if [ $? -eq 0 ]; then
   echo Restarting miner container
+  sleep 3
   ping="bong"
   count=0                                                                                                                           
   while [ "$ping" != "pong" ]; do
