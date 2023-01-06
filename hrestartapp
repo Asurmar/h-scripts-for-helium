@@ -10,7 +10,6 @@
 #   Sensecap    +
 #   Nebra       +
 
-
 debug=false                       # set this to "true" for additional debugging
 
 if   [ -x "$(command -v docker)" ]; then engine=docker
@@ -37,24 +36,46 @@ echo -e "\033[1mCurrent miner app connections:\033[0m"
 echo -e "$validator\n"
 
 echo -e "Executing command: $command\n"
-$command
+#$command
 if [ $? -eq 0 ]; then
-  echo Restarting miner app
-  sleep 3
-  ping="bong"
-  count=0
-  while [ "$ping" != "pong" ]; do
+  echo "Shutting down miner app:"
+  count=0			# checking if the app is properly shut down
+  status=$($engine inspect --format {{.State.Running}} $container)
+  while [ "$status" = "true" ]; do
     printf "*"
     sleep 1
-    count=$(expr $count + 1)                                                                                                        
-    if [ $count -ge 40 ]; then echo "Restart failed, starting miner app."; $engine start $container; sleep 1; fi                    
-    ping=$($engine exec $container miner ping 2> /dev/null)
-  done 
+    status=$($engine inspect --format {{.State.Running}} $container)
+    count=$(expr $count + 1)
+    if [ $count -ge 40 ]; then echo "Can't stop miner app, giving up."; break; fi
+  done
 
-  echo -e "\n\nWaiting for miner to come up"
-  while [ -n "$($pscmd|grep -vE 'grep'|grep 'miner info region')" ]; do      # needed on balena because of periodic running of "miner info region" command
+  echo -e "\nBringing up miner app:"
+  count=0			# checking if the app has properly started
+  status=$($engine inspect --format {{.State.Running}} $container)
+  while [ "$status" = "false" ]; do
+    printf "."
     sleep 1
-  done;
+    status=$($engine inspect --format {{.State.Running}} $container)
+    count=$(expr $count + 1)
+    if [ $count -ge 40 ]; then break; fi
+  done
+
+
+#  sleep 3
+#  ping="bong"
+#  count=0
+#  while [ "$ping" != "pong" ]; do
+#    printf "*"
+#    sleep 1
+#    count=$(expr $count + 1)                                                                                                        
+#    if [ $count -ge 40 ]; then echo "Restart failed, starting miner app."; $engine start $container; sleep 1; fi                    
+#    ping=$($engine exec $container miner ping 2> /dev/null)
+#  done 
+
+#  echo -e "\n\nWaiting for miner to come up"
+#  while [ -n "$($pscmd|grep -vE 'grep'|grep 'miner info region')" ]; do      # needed on balena because of periodic running of "miner info region" command
+#    sleep 1
+#  done;
 
   if [ "$pscmd" = "ps" ]; then newpid=$($pscmd|grep -vE "grep|region"|grep /opt/miner/bin/miner.*multi_time_warp|awk '{print $1}');
   else                         newpid=$($pscmd|grep -vE "grep|region"|grep /opt/miner/bin/miner.*multi_time_warp|awk '{print $2}'); fi
