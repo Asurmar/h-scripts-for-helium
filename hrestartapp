@@ -10,6 +10,7 @@
 #   Sensecap    +
 #   Nebra       +
 
+
 debug=false                       # set this to "true" for additional debugging
 
 if   [ -x "$(command -v docker)" ]; then engine=docker
