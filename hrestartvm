@@ -81,7 +81,7 @@ if [ $? -eq 0 ]; then
   else                         newpid=$($pscmd|grep -vE "grep|region"|grep /opt/miner/bin/miner.*multi_time_warp|awk '{print $2}'); fi
   process=$($pscmd|grep -vE "grep|region"|grep /opt/miner/bin/miner.*multi_time_warp)
   validator=$($engine exec $container netstat -ntp|grep -v 127\.0|grep -E "ESTABLISHED.*miner|PID")
-  echo -e "\n\033[1mNew miner app process:\033[0m"
+  echo -e "\n\n\033[1mNew miner app process:\033[0m"
   echo -e "$psheader\n$process\n"
   echo -e "\033[1mNew miner app connections:\033[0m"
   echo -e "$validator\n"
