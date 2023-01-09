@@ -45,11 +45,11 @@ if [ $? -eq 0 ]; then
     printf "*"
     sleep 1
     count=$(expr $count + 1)
-    if [ $count -ge 40 ]; then
+    if [ $count -ge 10 ]; then
       echo -e "\nCan't restart miner app, trying to restart miner container."
-      $engine stop $container
+      #$engine stop $container
       for i in $(seq 1 5); do printf "*"; sleep 1; done
-      $engine start $container
+      #$engine start $container
       for i in $(seq 1 5); do printf "."; sleep 1; done
       break
     fi
