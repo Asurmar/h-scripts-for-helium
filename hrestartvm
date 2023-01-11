@@ -41,10 +41,10 @@ if [ $? -eq 0 ]; then
   status=$($engine inspect --format {{.State.Running}} $container)
   while [ "$status" = "true" ]; do
     printf "*"
-    sleep 1
+    sleep 2
     status=$($engine inspect --format {{.State.Running}} $container)
     count=$(expr $count + 1)
-    if [ $count -ge 10 ]; then echo -e "\nCan't stop miner container, giving up."; break; fi
+    if [ $count -ge 40 ]; then echo -e "\nCan't stop miner container, giving up."; break; fi
   done
 
   echo -e "\nBringing up miner container:"
@@ -52,10 +52,10 @@ if [ $? -eq 0 ]; then
   status=$($engine inspect --format {{.State.Running}} $container)
   while [ "$status" = "false" ]; do
     printf "."
-    sleep 1
+    sleep 2
     status=$($engine inspect --format {{.State.Running}} $container)
     count=$(expr $count + 1)
-    if [ $count -ge 10 ]; then echo -e "\nCan't start miner container. Trying to run: $engine start $container"; $engine start $container; break; fi
+    if [ $count -ge 40 ]; then echo -e "\nCan't start miner container. Trying to run: $engine start $container"; $engine start $container; break; fi
   done
 
 #  sleep 3
