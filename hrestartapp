@@ -45,12 +45,14 @@ if [ $? -eq 0 ]; then
     printf "*"
     sleep 1
     count=$(expr $count + 1)
-    if [ $count -ge 10 ]; then
-      echo -e "\nCan't restart miner app, trying to restart miner container."
+    if [ $count -ge 40 ]; then
+      echo -e "\nCan't restart miner app, giving up. Try these commands:"
+      echo -e "    $engine stop $container"
+      echo -e "    $engine start $container"
       #$engine stop $container
-      for i in $(seq 1 5); do printf "*"; sleep 1; done
+      #for i in $(seq 1 5); do printf "*"; sleep 1; done
       #$engine start $container
-      for i in $(seq 1 5); do printf "."; sleep 1; done
+      #for i in $(seq 1 5); do printf "."; sleep 1; done
       break
     fi
     ping=$($engine exec $container miner ping 2> /dev/null)
