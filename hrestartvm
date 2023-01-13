@@ -37,37 +37,37 @@ echo -e "Executing command: $command\n"
 #$command
 if [ $? -eq 0 ]; then
   echo "Shutting down miner container:"
-  count=0                       # checking if the container is properly shut down
-  status=$($engine inspect --format {{.State.Running}} $container)
-  while [ "$status" = "true" ]; do
+  sleep 3
+  ping="bong"
+  count=0                                                                                                                           
+  while [ "$ping" != "pong" ]; do
     printf "*"
-    sleep 2
-    status=$($engine inspect --format {{.State.Running}} $container)
-    count=$(expr $count + 1)
-    if [ $count -ge 40 ]; then echo -e "\nCan't stop miner container, giving up."; break; fi
-  done
+    sleep 1
+    count=$(expr $count + 1)                                                                                                        
+    if [ $count -ge 40 ]; then echo -e "\nRestart failed, starting miner container."; $engine start $container; break; fi                    
+    ping=$($engine exec $container miner ping 2> /dev/null)
+  done 
 
-  echo -e "\nBringing up miner container:"
-  count=0                       # checking if the container has properly started
-  status=$($engine inspect --format {{.State.Running}} $container)
-  while [ "$status" = "false" ]; do
-    printf "."
-    sleep 2
-    status=$($engine inspect --format {{.State.Running}} $container)
-    count=$(expr $count + 1)
-    if [ $count -ge 40 ]; then echo -e "\nCan't start miner container. Trying to run: $engine start $container"; $engine start $container; break; fi
-  done
-
-#  sleep 3
-#  ping="bong"
-#  count=0                                                                                                                           
-#  while [ "$ping" != "pong" ]; do
+#  count=0                       # checking if the container is properly shut down
+#  status=$($engine inspect --format {{.State.Running}} $container)
+#  while [ "$status" = "true" ]; do
 #    printf "*"
-#    sleep 1
-#    count=$(expr $count + 1)                                                                                                        
-#    if [ $count -ge 40 ]; then echo "Restart failed, starting miner container."; $engine start $container; sleep 1; fi                    
-#    ping=$($engine exec $container miner ping 2> /dev/null)
-#  done 
+#    sleep 2
+#    status=$($engine inspect --format {{.State.Running}} $container)
+#    count=$(expr $count + 1)
+#    if [ $count -ge 40 ]; then echo -e "\nCan't stop miner container, giving up."; break; fi
+#  done
+  
+#  echo -e "\nBringing up miner container:"
+#  count=0                       # checking if the container has properly started
+#  status=$($engine inspect --format {{.State.Running}} $container)
+#  while [ "$status" = "false" ]; do
+#    printf "."
+#    sleep 2
+#    status=$($engine inspect --format {{.State.Running}} $container)
+#    count=$(expr $count + 1)
+#    if [ $count -ge 40 ]; then echo -e "\nCan't start miner container. Trying to run: $engine start $container"; $engine start $container; break; fi
+#  done
 
 #  echo -e "\n\nWaiting for miner to come up"
 #  while [ -n "$($pscmd|grep -vE 'grep'|grep 'miner info region')" ]; do      # needed on balena because of periodic running of "miner info region" command
