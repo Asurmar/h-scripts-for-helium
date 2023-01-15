@@ -40,9 +40,9 @@ count=0
 if [ $? -eq 0 ]; then
   while [ "$($engine exec $container miner ping 2> /dev/null)" = "pong" ]; do
     printf "*"
-    sleep 0.5 
+    sleep 1 
     count=$(expr $count + 1) 
-    if [ $count -ge 50 ]; then
+    if [ $count -ge 70 ]; then
       if [ "$pscmd" = "ps" ]; then newpid=$($pscmd|grep -vE "grep|region"|grep /opt/miner/bin/miner.*multi_time_warp|awk '{print $1}');
       else                         newpid=$($pscmd|grep -vE "grep|region"|grep /opt/miner/bin/miner.*multi_time_warp|awk '{print $2}'); fi
       if [ $oldpid -eq $newpid ]; then
