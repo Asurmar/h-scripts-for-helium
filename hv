@@ -104,6 +104,7 @@ if [ "$httpcode" = "302" ]; then ver_latest=$(echo $latest_github|awk '{print $2
 ver_major=$(echo $val_ver_long|cut -c 1)
 ver_minor=$(echo $val_ver_long|cut -c 2-4|grep -o [1-9].*$)
 ver_build=$(echo $val_ver_long|cut -c 5-8|grep -o [1-9].*$)
+if [ "$ver_build" = "" ]; then ver_build=0; fi
 val_ver_current=$ver_major"."$ver_minor"."$ver_build
 
 ### Heartbeat & activity calculation
