@@ -55,7 +55,7 @@ $engine exec $container netstat -ntp 2> /dev/null|grep "PID"
 connection_rows=0
 count=0
 while [ $connection_rows -ne 1 ]; do
-  connection=$($engine exec $container netstat -ntp 2> /dev/null|grep -vE "127.0.0.1:.*127.0.0.1:|:443"|grep "ESTABLISHED.*miner")
+  connection=$($engine exec $container netstat -ntp 2> /dev/null|grep -vE "127.0.0.1:.*127.0.0.1:|:443|:44158"|grep "ESTABLISHED.*miner")
   connection_rows=$(echo "$connection"|wc -l)
   if [ $connection_rows -eq 1 ]; then val_ipport=$(echo $connection|grep -o ":.*ESTABLISHED"|awk '{print $2}'); break; fi
   count=$(($count+1))
